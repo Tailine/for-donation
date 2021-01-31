@@ -1,6 +1,7 @@
-import React, { FormEvent, useState } from "react";
+import React, { useRef } from "react";
 import Image from "next/image";
-import styles from "../styles/sign_up.module.scss";
+import { default as NextLink } from "next/link";
+import NumberFormat from "react-number-format";
 
 import {
   FormControl,
@@ -13,61 +14,46 @@ import {
   FormErrorMessage,
   Grid,
   GridItem,
-  Box,
+  Text,
+  Link,
 } from "@chakra-ui/react";
+import { Controller, useForm } from "react-hook-form";
+import { validateEmail, validatePhoneNumber } from "../helpers/validators";
+
+import styles from "../styles/sign_up.module.scss";
 
 interface FormFields {
   name: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
   state: string;
   city: string;
   password: string;
   confirmPassword: string;
 }
 
-type FormErrors = Record<keyof FormFields, boolean>;
-
-const initalFormValues: FormFields = {
-  name: "",
-  email: "",
-  phone: "",
-  state: "",
-  city: "",
-  password: "",
-  confirmPassword: "",
-};
-
 export default function SignUp() {
-  const [formValues, setFormValues] = useState<FormFields>(initalFormValues);
-  const [errors, setErrors] = useState<FormErrors | undefined>();
+  const {
+    handleSubmit,
+    errors,
+    register,
+    control,
+    getValues,
+  } = useForm<FormFields>();
+  const inputRef = useRef<any>();
 
-  function updateFormValue(key: keyof FormFields, value: string) {
-    setFormValues({ ...formValues, [key]: value });
-  }
-
-  function formHasErrors() {
-    const errors: FormErrors = {} as FormErrors;
-
-    for (const key of Object.keys(formValues)) {
-      if (!formValues[key].trim()) {
-        errors[key] = true;
-      }
-    }
-
-    setErrors(errors);
-    return !!Object.values(errors);
-  }
-
-  function submitForm(event: FormEvent<HTMLFormElement>) {
+  function submitForm(values: FormFields) {
     event.preventDefault();
-    if (formHasErrors()) {
-      return;
-    }
+    console.log("values", values);
+  }
+
+  function checkIfPasswordsMatch(confirmPassword: string) {
+    const password = getValues("password");
+    return password === confirmPassword;
   }
 
   return (
-    <Flex w="100vw" bg="pink" justify="center">
+    <Flex w="100%" bg="pink" justify="center" overflowX="hidden">
       <Flex
         align="center"
         direction={{ base: "column", lg: "row" }}
@@ -108,26 +94,29 @@ export default function SignUp() {
           p="1em"
           bg="white"
         >
-          <form onSubmit={submitForm}>
+          <form onSubmit={handleSubmit(submitForm)}>
             <Grid
               templateColumns={{ md: "1fr 1fr" }}
-              gap={{ base: "0 0", md: "1.5em" }}
-              p={{ md: "2em" }}
+              gap={{ base: "0 0", md: "0 2em", lg: "2em" }}
+              p={{ md: "2em 2em 0" }}
             >
               <GridItem colSpan={{ base: 2, md: "auto" }}>
                 <FormControl
                   id="name"
                   m={{ base: "1em 0", lg: 0 }}
-                  isInvalid={errors?.name}
+                  isInvalid={!!errors?.name}
                 >
-                  <FormLabel>Nome:</FormLabel>
+                  <FormLabel htmlFor="name">Nome:</FormLabel>
                   <Input
+                    name="name"
+                    ref={register({ required: true })}
                     placeholder="Ana"
-                    onChange={({ target: { value } }) =>
-                      updateFormValue("name", value)
-                    }
                   />
-                  <FormErrorMessage>Campo obrigatório</FormErrorMessage>
+                  {errors.name && (
+                    <FormErrorMessage>
+                      Este campo é obrigatório
+                    </FormErrorMessage>
+                  )}
                 </FormControl>
               </GridItem>
 
@@ -135,16 +124,31 @@ export default function SignUp() {
                 <FormControl
                   id="phone"
                   m={{ base: "1em 0", lg: 0 }}
-                  isInvalid={errors?.phone}
+                  isInvalid={!!errors?.phoneNumber}
                 >
-                  <FormLabel>Telefone:</FormLabel>
-                  <Input
-                    placeholder="(11) 99999-9999"
-                    onChange={({ target: { value } }) =>
-                      updateFormValue("phone", value)
+                  <FormLabel htmlFor="phoneNumber">Telefone:</FormLabel>
+                  <Controller
+                    name="phoneNumber"
+                    defaultValue={""}
+                    control={control}
+                    rules={{
+                      validate: {
+                        isPhoneNumberValid: validatePhoneNumber,
+                      },
+                    }}
+                    onFocus={() => inputRef.current?.focus()}
+                    as={
+                      <NumberFormat
+                        getInputRef={(elem) => (inputRef.current = elem)}
+                        customInput={Input}
+                        format="(##) ##### ####"
+                        mask="_"
+                      />
                     }
                   />
-                  <FormErrorMessage>Campo obrigatório</FormErrorMessage>
+                  {errors.phoneNumber?.type === "isPhoneNumberValid" && (
+                    <FormErrorMessage>Telefone inválido</FormErrorMessage>
+                  )}
                 </FormControl>
               </GridItem>
 
@@ -152,17 +156,21 @@ export default function SignUp() {
                 <FormControl
                   id="email"
                   m={{ base: "1em 0", lg: 0 }}
-                  isInvalid={errors?.email}
+                  isInvalid={!!errors?.email}
                 >
-                  <FormLabel>Email:</FormLabel>
+                  <FormLabel htmlFor="email">Email:</FormLabel>
                   <Input
-                    type="email"
+                    name="email"
+                    ref={register({
+                      validate: {
+                        isEmailValid: validateEmail,
+                      },
+                    })}
                     placeholder="ana@gmail.com"
-                    onChange={({ target: { value } }) =>
-                      updateFormValue("name", value)
-                    }
                   />
-                  <FormErrorMessage>Campo obrigatório</FormErrorMessage>
+                  {errors.email?.type === "isEmailValid" && (
+                    <FormErrorMessage>Email inválido</FormErrorMessage>
+                  )}
                 </FormControl>
               </GridItem>
 
@@ -170,16 +178,21 @@ export default function SignUp() {
                 <FormControl
                   id="state"
                   m={{ base: "1em 0", lg: 0 }}
-                  isInvalid={errors?.state}
+                  isInvalid={!!errors?.state}
                 >
-                  <FormLabel>Estado:</FormLabel>
+                  <FormLabel htmlFor="state">Estado:</FormLabel>
                   <Select
+                    name="state"
+                    ref={register({ required: true })}
                     placeholder="Selecione seu estado"
-                    onChange={({ target: { value } }) =>
-                      updateFormValue("state", value)
-                    }
-                  />
-                  <FormErrorMessage>Campo obrigatório</FormErrorMessage>
+                  >
+                    <option value="first">1</option>
+                  </Select>
+                  {errors.state && (
+                    <FormErrorMessage>
+                      Este campo é obrigatório
+                    </FormErrorMessage>
+                  )}
                 </FormControl>
               </GridItem>
 
@@ -187,16 +200,19 @@ export default function SignUp() {
                 <FormControl
                   id="city"
                   m={{ base: "1em 0", lg: 0 }}
-                  isInvalid={errors?.city}
+                  isInvalid={!!errors?.city}
                 >
-                  <FormLabel>Cidade:</FormLabel>
+                  <FormLabel htmlFor="city">Cidade:</FormLabel>
                   <Input
-                    placeholder="Selecione sua cidade"
-                    onChange={({ target: { value } }) =>
-                      updateFormValue("city", value)
-                    }
+                    name="city"
+                    ref={register({ required: true })}
+                    placeholder="Ex: Salvador"
                   />
-                  <FormErrorMessage>Campo obrigatório</FormErrorMessage>
+                  {errors.city && (
+                    <FormErrorMessage>
+                      Este campo é obrigatório
+                    </FormErrorMessage>
+                  )}
                 </FormControl>
               </GridItem>
 
@@ -204,17 +220,20 @@ export default function SignUp() {
                 <FormControl
                   id="password"
                   m={{ base: "1em 0", lg: 0 }}
-                  isInvalid={errors?.password}
+                  isInvalid={!!errors?.password}
                 >
-                  <FormLabel>Senha:</FormLabel>
+                  <FormLabel htmlFor="password">Senha:</FormLabel>
                   <Input
+                    name="password"
+                    ref={register({ required: true })}
                     type="password"
                     placeholder="Insira uma senha"
-                    onChange={({ target: { value } }) =>
-                      updateFormValue("password", value)
-                    }
                   />
-                  <FormErrorMessage>Campo obrigatório</FormErrorMessage>
+                  {errors.password && (
+                    <FormErrorMessage>
+                      Este campo é obrigatório
+                    </FormErrorMessage>
+                  )}
                 </FormControl>
               </GridItem>
 
@@ -222,21 +241,30 @@ export default function SignUp() {
                 <FormControl
                   id="confirmPassword"
                   m={{ base: "1em 0", lg: 0 }}
-                  isInvalid={errors?.confirmPassword}
+                  isInvalid={!!errors?.confirmPassword}
                 >
-                  <FormLabel>Confirmar senha:</FormLabel>
+                  <FormLabel htmlFor="confirmPassword">
+                    Confirmar senha:
+                  </FormLabel>
                   <Input
+                    name="confirmPassword"
+                    ref={register({
+                      validate: { passwordsMatch: checkIfPasswordsMatch },
+                    })}
                     type="password"
                     placeholder="Insira novamente a senha"
-                    onChange={({ target: { value } }) =>
-                      updateFormValue("confirmPassword", value)
-                    }
                   />
-                  <FormErrorMessage>Campo obrigatório</FormErrorMessage>
+                  {errors.confirmPassword?.type === "passwordsMatch" && (
+                    <FormErrorMessage>Senhas não coincidem</FormErrorMessage>
+                  )}
                 </FormControl>
               </GridItem>
 
-              <GridItem colSpan={{ base: 2, md: "auto" }}>
+              <GridItem
+                colSpan={{ base: 2 }}
+                colStart={{ md: 2 }}
+                colEnd={{ md: 2 }}
+              >
                 <Button
                   mb={{ base: "1.5em", lg: 0 }}
                   mt="1.5em"
@@ -256,6 +284,17 @@ export default function SignUp() {
                 </Button>
               </GridItem>
             </Grid>
+            <Text
+              fontSize="sm"
+              align={{ base: "center", md: "right" }}
+              paddingRight={{ md: "2.5em" }}
+              m={{ base: "1em 0", md: "1.5em 0" }}
+            >
+              Já possui cadastro? {/* TODO link to sign in page */}
+              <NextLink href="/" passHref>
+                <Link color="purple.100">Clique aqui</Link>
+              </NextLink>
+            </Text>
           </form>
         </Flex>
       </Flex>
